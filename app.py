@@ -77,16 +77,16 @@ st.markdown("""
 
 # Sample prompts for "Surprise Me"
 SAMPLE_PROMPTS = [
-    "A panda bear wearing a chef hat baking a cake in a sunny kitchen, digital art",
-    "Portrait of a beautiful young woman with elegant makeup and flowing hair",
-    "Renaissance painting of an elephant in a tuxedo",
-    "A golden retriever puppy playing in a sunny garden with flowers",
-    "A steampunk robot reading a book in an ancient library",
-    "A lighthouse on a rocky cliff during a beautiful sunset",
-    "A cozy cottage in the snowy woods with warm lights in the windows",
-    "An astronaut floating in space with Earth in the background, photorealistic",
-    "A mystical dragon flying over a medieval castle at night",
-    "A field of purple lavender under a blue sky with white clouds"
+    "a panda bear wearing chef hat baking cake in sunny kitchen, digital art",
+    "portrait of beautiful young woman with elegant makeup and flowing hair",
+    "renaissance painting of elephant in tuxedo",
+    "golden retriever puppy playing in sunny garden with flowers",
+    "steampunk robot reading book in ancient library",
+    "lighthouse on rocky cliff during beautiful sunset",
+    "cozy cottage in snowy woods with warm lights in windows",
+    "astronaut floating in space with earth in background, photorealistic",
+    "mystical dragon flying over medieval castle at night",
+    "field of purple lavender under blue sky with white clouds"
 ]
 
 # Load model with caching
@@ -107,6 +107,17 @@ def load_model():
         st.error(f"Error loading model: {str(e)}")
         st.stop()
         return None
+
+def clean_prompt(prompt):
+    """Clean and validate the prompt to avoid tokenizer issues."""
+    # Remove special characters that might cause issues
+    prompt = prompt.strip()
+    # Limit length
+    if len(prompt) > 200:
+        prompt = prompt[:200]
+    # Replace multiple spaces with single space
+    prompt = ' '.join(prompt.split())
+    return prompt
 
 # Title Section
 st.markdown("""
@@ -134,21 +145,37 @@ with col2:
 # Handle Surprise Me button
 if surprise_btn:
     prompt = random.choice(SAMPLE_PROMPTS)
+    st.session_state['current_prompt'] = prompt
     st.rerun()
 
+# Use session state prompt if available
+if 'current_prompt' in st.session_state and not prompt:
+    prompt = st.session_state['current_prompt']
+
 # Load model
-with st.spinner("Loading AI model... Please wait..."):
-    pipeline = load_model()
+if 'model_loaded' not in st.session_state:
+    with st.spinner("Loading AI model... Please wait..."):
+        pipeline = load_model()
+        st.session_state['model_loaded'] = True
+        st.session_state['pipeline'] = pipeline
+else:
+    pipeline = st.session_state['pipeline']
 
 # Generate image
 if generate_btn and prompt and prompt.strip():
+    # Clean the prompt
+    cleaned_prompt = clean_prompt(prompt)
+    
     with st.spinner("🎨 Generating your image... This may take 2-5 minutes on CPU. Please be patient..."):
         try:
             with torch.no_grad():
+                # Use cleaned prompt with explicit parameters
                 result = pipeline(
-                    prompt,
+                    cleaned_prompt,
                     num_inference_steps=50,
-                    guidance_scale=7.5
+                    guidance_scale=7.5,
+                    height=512,
+                    width=512
                 )
             
             image = result.images[0]
@@ -158,7 +185,7 @@ if generate_btn and prompt and prompt.strip():
             # Display generated image
             col1, col2, col3 = st.columns([1, 3, 1])
             with col2:
-                st.image(image, caption=f"Generated: {prompt}", use_container_width=True)
+                st.image(image, caption=f"Generated: {cleaned_prompt}", use_container_width=True)
                 
                 # Download button
                 import io
@@ -173,9 +200,15 @@ if generate_btn and prompt and prompt.strip():
                     mime="image/png",
                     use_container_width=True
                 )
+                
+            # Clear the session state prompt after successful generation
+            if 'current_prompt' in st.session_state:
+                del st.session_state['current_prompt']
+                
         except Exception as e:
             st.error(f"Error generating image: {str(e)}")
-            st.info("Please try again with a different prompt.")
+            st.info("Please try a simpler prompt with common English words. Avoid special characters or very specific technical terms.")
+            st.warning("💡 Tip: Try prompts like 'a cat sitting on a table' or 'beautiful sunset over mountains'")
 
 elif generate_btn:
     st.warning("⚠️ Please enter a description before generating.")
@@ -192,16 +225,13 @@ gallery_col1, gallery_col2, gallery_col3 = st.columns(3)
 
 gallery_items = [
     {
-        "prompt": "Panda bear baking a cake in a sunny kitchen, digital art",
-        "caption": "Panda bear baking a cake in a sunny kitchen, digital art"
+        "caption": "panda bear baking cake in sunny kitchen"
     },
     {
-        "prompt": "Portrait of a beautiful young woman of 18 age",
-        "caption": "Portrait of a beautiful young woman of 18 age"
+        "caption": "portrait of beautiful young woman"
     },
     {
-        "prompt": "Renaissance painting of an elephant in a tuxedo",
-        "caption": "Renaissance painting of an elephant in a tuxedo"
+        "caption": "elephant in tuxedo, renaissance painting"
     }
 ]
 
@@ -210,7 +240,7 @@ with gallery_col1:
     st.markdown(f"**Example:** {gallery_items[0]['caption']}")
 
 with gallery_col2:
-    st.info("🎨 Use detailed descriptions for better results!")
+    st.info("🎨 Use simple, clear descriptions for best results!")
     st.markdown(f"**Example:** {gallery_items[1]['caption']}")
 
 with gallery_col3:
@@ -221,6 +251,7 @@ with gallery_col3:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: white; padding: 20px;">
-    <small>Powered by Stable Diffusion v1.4 from Hugging Face | Running on CPU (no GPU required)</small>
+    <small>Powered by Stable Diffusion v1.4 from Hugging Face | Running on CPU (no GPU required)</small><br>
+    <small>⚠️ Use simple English words for best results. Avoid special characters.</small>
 </div>
 """, unsafe_allow_html=True)
