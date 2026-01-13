@@ -106,15 +106,3 @@ st.markdown("""
 <small>Powered by Stable Diffusion v1.4 from Hugging Face. 
 Running on CPU (no GPU required).</small>
 """, unsafe_allow_html=True)
-```
-
----
-
-## requirements.txt
-```
-streamlit==1.29.0
-torch==2.0.1
-diffusers==0.21.4
-transformers==4.35.2
-accelerate==0.24.1
-Pillow==10.1.0
